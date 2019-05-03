@@ -11,6 +11,7 @@ namespace DHCP_feladat
         public static List<Reserved> reserved = new List<Reserved>();
         public static List<DHCP> dhcp = new List<DHCP>();
         public static List<Test> test = new List<Test>();
+        public static List<DHCP> dhcp_kesz = new List<DHCP>();
 
 
         public static void beolv_excluded()
@@ -80,6 +81,8 @@ namespace DHCP_feladat
                     string line = read.ReadLine();
                     //sor hozzáadása a külön osztályhoz
                     dhcp.Add(new DHCP(line));
+                    dhcp_kesz.Add(new DHCP(line));
+
                 }
                 //olvasás majd a fájl bezárása
                 read.Close();
@@ -117,7 +120,103 @@ namespace DHCP_feladat
                 Console.WriteLine("test.csv...\tbeolvasása....HIBA a beolvasásnál!" + e);
             }
         }
+        public static void read_test()
+        {
+            Console.WriteLine("\n2.Feladat:\t\"test.csv\" végrehajtása:\n");
+            foreach (Test t in test)
+            {
+                if (t.getCommand() == "request")
+                {
+                    //van e már érvényes foglalása a dhcp.csv - ben
+                    foreach (DHCP d in dhcp)
+                    {
+                        //szerepel
+                        if (t.getAddress() == d.getMAC())
+                            break;
+                    }
+                    //szerepel e a reserved.csv-ben
+                    foreach (Reserved r in reserved)
+                    {
+                        //szerepel
+                        if (t.getAddress() == r.getMAC())
+                        {
+                            foreach (DHCP d in dhcp)
+                                //ipcím már ki van osztva?
+                                if (r.getIP() == d.getIP())
+                                    break;
+                            dhcp.Add(new DHCP(r.getMAC(), r.getIP()));
+                            break;
+                        }
+                    }
+                    //nem szerepel a reserved-ben
+                    //első kisztható cím eleje
+                    string ipad = "192.168.10.";
+                    //első kiosztható cím vége
+                    int ip = 100;
+                    foreach (DHCP d in dhcp)
+                    {
+                        //Cím már kivan osztva
+                        if (d.getIP() == ipad + ip)
+                        {
+                            ip++;
+                            if (ip > 199)
+                            {
+                                Console.WriteLine("Sikertelen IP cím kiosztás!");
+                                break;
+                            }
+                        }
+                        //cím nincs kiosztva
+                        //Szerepel e a kizártak között excluded.csv
+                        foreach (Excluded e in excluded)
+                        {
+                            //igen kivan zárva
+                            if (e.getIP() == ipad + ip)
+                            {
+                                ip++;
+                                if (ip > 199)
+                                {
+                                    Console.WriteLine("Sikertelen IP cím kiosztás!");
+                                    break;
+                                }
+                            }
+                        }
+                        //Cím nincs kizárva
+                        //szerepel e a fenttartások között
+                        foreach(Reserved r in reserved)
+                        {
+                            //igen szerepel
+                            if (r.getIP() == ipad + ip)
+                            {
+                                ip++;
+                                if (ip > 199)
+                                {
+                                    Console.WriteLine("Sikertelen IP cím kiosztás!");
+                                    break;
+                                }
+                            }
+                        }
+                        //nem szerepel
+                        dhcp.Add(new DHCP(d.getMAC(), ipad+ip));
+                        break;
+                    }
 
+                }
+                //cím elengedése
+                else if (t.getCommand() == "release")
+                {
+                    int i = 0;
+                    foreach (DHCP d in dhcp)
+                    {
+                        if (t.getAddress() == d.getIP())
+                        {
+                            dhcp.RemoveAt(i);
+                            break;
+                        }
+                        i++;
+                    }
+                }
+            }
+        }
         static void Main(string[] args)
         {
             //Fájlok beolvasása
@@ -125,7 +224,11 @@ namespace DHCP_feladat
             beolv_reserved();
             beolv_dhcp();
             beolv_test();
-
+            read_test();
+            foreach (DHCP d in dhcp)
+            {
+                Console.WriteLine(d.ToString());
+            }
             Console.ReadKey();
 
         }
